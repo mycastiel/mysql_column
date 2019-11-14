@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libblackhole.a  CMakeFiles/blackhole.dir/ha_blackhole.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libblackhole.a

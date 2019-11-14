@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libgr_unit_test_resource.a  CMakeFiles/gr_unit_test_resource.dir/src/gcs_plugin_messages.cc.o CMakeFiles/gr_unit_test_resource.dir/src/member_info.cc.o CMakeFiles/gr_unit_test_resource.dir/src/member_version.cc.o CMakeFiles/gr_unit_test_resource.dir/src/compatibility_module.cc.o CMakeFiles/gr_unit_test_resource.dir/src/mysql_version_gcs_protocol_map.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libgr_unit_test_resource.a

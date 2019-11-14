@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libhttp_auth_backend_lib.a  CMakeFiles/http_auth_backend_lib.dir/http_auth_backend.cc.o CMakeFiles/http_auth_backend_lib.dir/kdf_sha_crypt.cc.o CMakeFiles/http_auth_backend_lib.dir/kdf_pbkdf2.cc.o CMakeFiles/http_auth_backend_lib.dir/mcf_error.cc.o CMakeFiles/http_auth_backend_lib.dir/http_auth_error.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libhttp_auth_backend_lib.a

@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc ../archive_output_directory/libdbug.a  CMakeFiles/dbug.dir/dbug.cc.o CMakeFiles/dbug.dir/trace.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib ../archive_output_directory/libdbug.a

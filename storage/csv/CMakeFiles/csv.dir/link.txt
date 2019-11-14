@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libcsv.a  CMakeFiles/csv.dir/ha_tina.cc.o CMakeFiles/csv.dir/transparent_file.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libcsv.a

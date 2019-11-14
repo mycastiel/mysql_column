@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc librest_api_lib.a  CMakeFiles/rest_api_lib.dir/rest_api_utils.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib librest_api_lib.a

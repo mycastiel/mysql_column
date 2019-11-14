@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libmock_server_rest_client.a  CMakeFiles/mock_server_rest_client.dir/mock_server_rest_client.cc.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libmock_server_rest_client.a

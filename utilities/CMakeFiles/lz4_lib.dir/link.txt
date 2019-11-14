@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc liblz4_lib.a  CMakeFiles/lz4_lib.dir/__/extra/lz4/lz4.c.o CMakeFiles/lz4_lib.dir/__/extra/lz4/lz4frame.c.o CMakeFiles/lz4_lib.dir/__/extra/lz4/lz4hc.c.o CMakeFiles/lz4_lib.dir/__/extra/lz4/xxhash.c.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib liblz4_lib.a

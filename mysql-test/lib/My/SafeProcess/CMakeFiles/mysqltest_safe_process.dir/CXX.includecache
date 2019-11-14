@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/qiaoyifan/mysql-server/mysql-test/lib/My/SafeProcess/safe_process.cc
+errno.h
+-
+signal.h
+-
+stdarg.h
+-
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+sys/resource.h
+-
+sys/time.h
+-
+sys/types.h
+-
+sys/wait.h
+-
+unistd.h
+-
+string
+-
+my_config.h
+/Users/qiaoyifan/mysql-server/mysql-test/lib/My/SafeProcess/my_config.h
+asan_library_name.h
+/Users/qiaoyifan/mysql-server/mysql-test/lib/My/SafeProcess/asan_library_name.h
+
+include/my_config.h
+

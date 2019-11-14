@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/qiaoyifan/mysql-server/unittest/examples/no_plan-t.cc
+unittest/mytap/tap.h
+/Users/qiaoyifan/mysql-server/unittest/examples/unittest/mytap/tap.h
+
+include/my_compiler.h
+assert.h
+-
+stddef.h
+-
+my_config.h
+include/my_config.h
+
+include/my_config.h
+
+unittest/mytap/tap.h
+my_compiler.h
+unittest/mytap/my_compiler.h
+

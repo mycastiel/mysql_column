@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/qiaoyifan/mysql-server/router/src/json_schema_embedder/json_schema_embedder.cc
+cerrno
+-
+cstdio
+-
+cstring
+-
+stdexcept
+-
+string
+-
+
