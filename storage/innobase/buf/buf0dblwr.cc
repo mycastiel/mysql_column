@@ -841,36 +841,47 @@ static void buf_dblwr_check_block(
  to the datafile. It is the job of the caller to sync the datafile. */
 static void buf_dblwr_write_block_to_datafile(
     const buf_page_t *bpage, /*!< in: page to write */
-    bool sync)               /*!< in: true if sync IO
+    bool sync,
+    bool single)               /*!< in: true if sync IO
                              is requested */
 {
   ut_a(buf_page_in_file(bpage));
 
-  
+  int flagg = 0;
   page_t *frame = ((buf_block_t *)bpage)->frame;
   page_t frame1[UNIV_PAGE_SIZE];
-  if (bpage->id.space()!=1 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX) {
-        fil_space_t * space = get_space(bpage->id.space());
-        char * tablename = space->name;
-        if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
-          
+  if ((bpage->id.space()==2 && bpage->id.space()==3) && bpage->id.space()<20 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space())) {
+        //fil_space_t * space = get_space(bpage->id.space());
+        //char * tablename = space->name;
+        //if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
           page_t *frame2 = ((buf_block_t *)bpage)->frame;
 
           int off = mach_read_from_2(frame2 + PAGE_DATA + 3);
           int trxs1 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID);
           int trxs2 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
+          uint fl0 = mach_read_from_4(frame2 + 4);
           uint fl1 = mach_read_from_4(frame2 + 8);
           uint fl2 = mach_read_from_4(frame2 + 12);
-          if (trxs1 == 0 && trxs2 == 0 && (fl1 != 4294967295 || fl2 != 4294967295)) {
+
+          int slots = mach_read_from_1(frame2 + PAGE_DATA + 5 + off + 19);
+          if (/*trxs1 == 0 && trxs2 == 0 &&*/ fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128) {
+            flagg = 1;
             //sync = true;
             memcpy(frame1, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
-            dict_table_t * table = dict_table_open_on_name(tablename, false, false, DICT_ERR_IGNORE_ALL);
+            //std::cout<<"int"<<std::endl;
+            /*for (int i = 0; i < UNIV_PAGE_SIZE; i ++){
+              std::cout<<(int *)frame2[i];
+              std::cout<<" ";
+            }
+            std::cout<<""<<std::endl;
+            /*dict_table_t * table = dict_table_open_on_name(tablename, false, false, DICT_ERR_IGNORE_ALL);
             
             int n_cols = table->n_cols;
             int lens[n_cols];
             int n = 0;
             int nulla = 0;
             int sum[n_cols];
+            int c =0;
             for (int i = 0; i < n_cols; i++){
               if (table->cols[i].is_nullable()){
                 nulla++;
@@ -878,12 +889,35 @@ static void buf_dblwr_write_block_to_datafile(
               if (table->cols[i].mtype != DATA_SYS){
                 n++;
               }
-              lens[i] = table->cols[i].len;
+              
+              if (table->cols[i].mtype == DATA_INT) {
+                lens[i] = table->cols[i].len;
+              }
+              else if (table->cols[i].mtype == DATA_CHAR || table->cols[i].mtype == DATA_MYSQL || table->cols[i].mtype == DATA_VARCHAR) {
+                lens[i] = table->cols[i].len/3;
+                c ++;
+              }
               if (i == 0) sum[i] = 0;
               else sum[i] = sum[i-1] + lens[i-1];
             }
 
-            dict_table_close(table, false, false);
+            dict_table_close(table, false, false);*/
+            int n_cols = 4;
+            int lens[n_cols];
+            int sum[n_cols+1];
+            int n = 0;
+            int nulla = 0;
+            int c = 0;
+            lens[0] = 4;
+            lens[1] = 4;
+            lens[2] = 120;
+            lens[3] = 60;
+            n = 4;
+            c = 2;
+            for (int i = 0; i < n_cols + 1; i++){
+              if (i == 0) sum[i] = 0;
+              else sum[i] = sum[i-1] + lens[i-1];
+            }
             //fixed start
             page_t new_frame[UNIV_PAGE_SIZE];
             memcpy(new_frame, frame2, UNIV_PAGE_SIZE);
@@ -905,6 +939,7 @@ static void buf_dblwr_write_block_to_datafile(
               nul = nul + 1;
               
             }
+            nul=nul+c;
             int head_length = 5+nul+19;
             int data_pos[n]; 
             int data_lens[n];
@@ -927,8 +962,8 @@ static void buf_dblwr_write_block_to_datafile(
             
           }
           //fixed ends
-        }
-      } 
+        //}
+      }
   
   ulint type = IORequest::WRITE;
 
@@ -950,36 +985,33 @@ static void buf_dblwr_write_block_to_datafile(
 
   } else {
     ut_ad(!bpage->size.is_compressed());
-    std::cout<<"nocom"<<std::endl;
 
     /* Our IO API is common for both reads and writes and is
     therefore geared towards a non-const parameter. */
 
     buf_block_t *block =
         reinterpret_cast<buf_block_t *>(const_cast<buf_page_t *>(bpage));
-
     ut_a(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
     buf_dblwr_check_page_lsn(block->frame);
-
-    err = fil_io(request, sync, bpage->id, bpage->size, 0,
+    if (flagg){
+      page_t frame2[UNIV_PAGE_SIZE];
+      memcpy(frame2,((buf_block_t *)bpage)->frame,UNIV_PAGE_SIZE);
+      
+      err = fil_io(request, sync, bpage->id, bpage->size, 0,
+                 bpage->size.physical(), frame2, block);
+    }
+    else{
+      err = fil_io(request, sync, bpage->id, bpage->size, 0,
                  bpage->size.physical(), block->frame, block);
-
+    }
+    
     ut_a(err == DB_SUCCESS);
   }
-  /*if (bpage->id.space()!=1) {
-    fil_space_t * space = get_space(bpage->id.space());
-    char * tablename = space->name;
-    if (((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
-      int trxs1 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID);
-      int trxs2 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
-      uint fl1 = mach_read_from_4(frame + 8);
-      uint fl2 = mach_read_from_4(frame + 12);
-      if (trxs1 == 0 && trxs2 == 0 && (fl1 != 4294967295 || fl2 != 4294967295)) {
-        os_aio_simulated_wake_handler_threads();
-        memcpy(((buf_block_t *)bpage)->frame, frame1, UNIV_PAGE_SIZE);
-      }
-    }
-  }*/
+  
+  if (flagg) {
+    //os_aio_simulated_wake_handler_threads();
+    memcpy(((buf_block_t *)bpage)->frame, frame1, UNIV_PAGE_SIZE);
+  }
 }
 
 /** Flushes possible buffered writes from the doublewrite memory buffer to disk,
@@ -1103,7 +1135,7 @@ flush:
 
   /* Now flush the doublewrite buffer data to disk */
   fil_flush(TRX_SYS_SPACE);
-
+  //std::cout<<"fil flush"<<std::endl;
   /* We know that the writes have been flushed to disk now
   and in recovery we will find them in the doublewrite buffer
   blocks. Next do the writes to the intended positions. */
@@ -1121,7 +1153,8 @@ flush:
   the same block twice from two different threads. */
   ut_ad(first_free == buf_dblwr->first_free);
   for (ulint i = 0; i < first_free; i++) {
-    buf_dblwr_write_block_to_datafile(buf_dblwr->buf_block_arr[i], false);
+    //std::cout<<"i "<<i<<std::endl;
+    buf_dblwr_write_block_to_datafile(buf_dblwr->buf_block_arr[i], false, false);
   }
 
   /* Wake possible simulated aio thread to actually post the
@@ -1129,31 +1162,50 @@ flush:
   at this point. We leave it to the IO helper thread to flush
   datafiles when the whole batch has been processed. */
   os_aio_simulated_wake_handler_threads();
-
-  for (ulint i = 0; i < first_free; i++) {
+  //std::cout<<"write end"<<std::endl;
+  /*for (ulint i = 0; i < first_free; i++) {
     buf_page_t *bpage = buf_dblwr->buf_block_arr[i];
-    if (bpage->id.space()!=1 && !fsp_is_system_temporary(bpage->id.space())) {
-      fil_space_t * space = get_space(bpage->id.space());
-      char * tablename = space->name;
-      if (((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
-        page_t *frame;
+    if ((bpage->id.space()==2 && bpage->id.space()==3) && !fsp_is_system_temporary(bpage->id.space())) {
+      //std::cout<<"tablename"<<std::endl;
+      //std::cout<<bpage->id.space()<<std::endl;
+      //fil_space_t * space = get_space(bpage->id.space());
+      //char * tablename = space->name;
+      //std::cout<<tablename<<std::endl;
+      if (((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX /*&& strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL*//*) {
+        /*page_t *frame;
         int flag = 0;
         frame = bpage->zip.data;
         if (!frame) {
           flag = 1;
           frame = ((buf_block_t *)bpage)->frame;
         }
-        int trxs1 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID);
+        //std::cout<<"recover"<<std::endl;
+        /*std::cout<<"recover"<<std::endl;
+            for (int i = 0; i < UNIV_PAGE_SIZE; i ++){
+              std::cout<<(int *)frame[i];
+              std::cout<<" ";
+            }
+            std::cout<<""<<std::endl;*/
+        /*int trxs1 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID);
         int trxs2 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
         uint fl1 = mach_read_from_4(frame + 8);
         uint fl2 = mach_read_from_4(frame + 12);
-        if (trxs1 == 0 && trxs2 == 0 && (fl1 != 4294967295 || fl2 != 4294967295)) {
-          dict_table_t * table = dict_table_open_on_name(tablename, false, false, DICT_ERR_IGNORE_NONE);
-          int n_cols = table->n_cols;
+        int off = mach_read_from_2(frame + PAGE_DATA + 3);
+        int slots = mach_read_from_1(frame + PAGE_DATA + 5 + off);
+        if (trxs1 == 0 && trxs2 == 0 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 0) {
+          std::cout<<"rei "<<i<<std::endl;
+          for (int i = 0; i < UNIV_PAGE_SIZE; i ++){
+              std::cout<<(int *)frame[i];
+              std::cout<<" ";
+            }
+            std::cout<<""<<std::endl;
+          //dict_table_t * table = dict_table_open_on_name(tablename, false, false, DICT_ERR_IGNORE_NONE);
+          /*
           int lens[n_cols];
           int sum[n_cols];
           int n = 0;
           int nulla = 0;
+          int c = 0;
           for (int i = 0; i < n_cols; i++){
             if (table->cols[i].is_nullable()){
               nulla++;
@@ -1161,11 +1213,33 @@ flush:
             if (table->cols[i].mtype != DATA_SYS){
               n++;
             }
-            lens[i] = table->cols[i].len;
+            if (table->cols[i].mtype == DATA_INT) {
+                lens[i] = table->cols[i].len;
+              }
+              else if (table->cols[i].mtype == DATA_CHAR || table->cols[i].mtype == DATA_MYSQL || table->cols[i].mtype == DATA_VARCHAR) {
+                lens[i] = table->cols[i].len/3;
+                c++;
+              }
+            if (i == 0) sum[i] = 0;
+            else sum[i] = sum[i-1] + lens[i-1];
+          }*/
+          //dict_table_close(table, false, false);
+          /*int n_cols = 4;
+          int lens[n_cols];
+          int sum[n_cols+1];
+          int n = 0;
+          int nulla = 0;
+          int c = 0;
+          lens[0] = 4;
+          lens[1] = 4;
+          lens[2] = 120;
+          lens[3] = 60;
+          n = 4;
+          c = 2;
+          for (int i = 0; i < n_cols + 1; i++){
             if (i == 0) sum[i] = 0;
             else sum[i] = sum[i-1] + lens[i-1];
           }
-          dict_table_close(table, false, false);
           page_t new_frame[UNIV_PAGE_SIZE];
           memcpy(new_frame, frame, UNIV_PAGE_SIZE);
           int rec_n = mach_read_from_2(frame +(PAGE_HEADER+PAGE_N_RECS));
@@ -1176,7 +1250,7 @@ flush:
           else {
             t = 4;
           }
-          std::cout<<t<<std::endl;
+          //std::cout<<t<<std::endl;
           //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
           memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
           int nul = int(nulla/8);
@@ -1185,29 +1259,43 @@ flush:
           } else {
             nul = nul + 1;
           }
+          nul = nul + c;
           int head_length = 5+nul+19;
           int rec_length = head_length + sum[n];
           int data_pos[n]; 
           int data_lens[n];
+          int pos = PAGE_DATA + 5 + off;
           data_pos[0] = PAGE_NEW_SUPREMUM_END + rec_n * head_length;
           data_lens[0] = lens[0] * rec_n;
           for (int i = 1; i < n; i ++){
             data_pos[i] = data_pos[i-1] + data_lens[i-1];
             data_lens[i] = lens[i] * rec_n;
           }
+          std::cout<<pos<<" "<<head_length<<" "<<rec_n<<std::endl;
           
           for (int i = 0; i < rec_n; i++) {
-            memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
+            //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
+            memcpy(new_frame + pos - nul - 5, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
             for (int j = 0; j < n; j++){
-              memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length + head_length + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
+              //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length + head_length + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
+              memcpy(new_frame + pos + 19 + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
             }
+            off = mach_read_from_2(frame + PAGE_NEW_SUPREMUM_END + i*(head_length) + 5);
+            pos = pos + off;
+            std::cout<<pos<<" "<<off<<" next: ";
           }
-
-          memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
+          std::cout<<""<<std::endl;
+            for (int i = 0; i < UNIV_PAGE_SIZE; i ++){
+              std::cout<<(int *)new_frame[i];
+              std::cout<<" ";
+            }
+            std::cout<<""<<std::endl;
+          //memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
         }
       }
     }
-  }
+  }*/
+  //std::cout<<"total ends"<<std::endl;
 }
 
 /** Posts a buffer page for writing. If the doublewrite memory buffer
@@ -1247,7 +1335,7 @@ try_again:
 
   byte *p =
       buf_dblwr->write_buf + univ_page_size.physical() * buf_dblwr->first_free;
-
+  //std::cout<<"write writes"<<std::endl;
   if (bpage->size.is_compressed()) {
     UNIV_MEM_ASSERT_RW(bpage->zip.data, bpage->size.physical());
     /* Copy the compressed page and clear the rest. */
@@ -1276,8 +1364,9 @@ try_again:
 
   if (buf_dblwr->first_free == srv_doublewrite_batch_size) {
     mutex_exit(&(buf_dblwr->mutex));
-
+    //std::cout<<"flush writes"<<std::endl;
     buf_dblwr_flush_buffered_writes();
+    //std::cout<<"flush writes end"<<std::endl;
 
     return;
   }
@@ -1296,12 +1385,13 @@ void buf_dblwr_write_single_page(
     buf_page_t *bpage, /*!< in: buffer block to write */
     bool sync)         /*!< in: true if sync IO requested */
 {
+  std::cout<<"0";
   page_no_t i;
   dberr_t err;
   ulint n_slots;
   page_no_t size;
   page_no_t offset;
-
+  std::cout<<"1";
   ut_a(buf_page_in_file(bpage));
   ut_a(srv_use_doublewrite_buf);
   ut_a(buf_dblwr != NULL);
@@ -1312,7 +1402,7 @@ void buf_dblwr_write_single_page(
   size = 2 * TRX_SYS_DOUBLEWRITE_BLOCK_SIZE;
   ut_a(size > srv_doublewrite_batch_size);
   n_slots = size - srv_doublewrite_batch_size;
-
+  std::cout<<"2";
   if (buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE) {
     /* Check that the actual page in the buffer pool is
     not corrupt and the LSN values are sane. */
@@ -1335,7 +1425,7 @@ retry:
 
     goto retry;
   }
-
+  std::cout<<"3";
   for (i = srv_doublewrite_batch_size; i < size; ++i) {
     if (!buf_dblwr->in_use[i]) {
       break;
@@ -1353,7 +1443,7 @@ retry:
   srv_stats.dblwr_writes.inc();
 
   mutex_exit(&buf_dblwr->mutex);
-
+  std::cout<<"4";
   /* Lets see if we are going to write in the first or second
   block of the doublewrite buffer. */
   if (i < TRX_SYS_DOUBLEWRITE_BLOCK_SIZE) {
@@ -1387,6 +1477,7 @@ retry:
                  (void *)(buf_dblwr->write_buf + univ_page_size.physical() * i),
                  NULL);
   } else {
+    std::cout<<"5";
     /* It is a regular page. Write it directly to the
     doublewrite buffer */
     //std::cout<<"unzip"<<std::endl;
@@ -1396,14 +1487,15 @@ retry:
   }
 
   ut_a(err == DB_SUCCESS);
-
+  std::cout<<"6";
   /* Now flush the doublewrite buffer data to disk */
   fil_flush(TRX_SYS_SPACE);
 
   /* We know that the write has been flushed to disk now
   and during recovery we will find it in the doublewrite buffer
   blocks. Next do the write to the intended position. */
-  buf_dblwr_write_block_to_datafile(bpage, sync);
+  std::cout<<"3"<<std::endl;
+  buf_dblwr_write_block_to_datafile(bpage, sync, true);
 }
 
 /** Constructor

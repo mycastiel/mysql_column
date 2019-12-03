@@ -1151,6 +1151,33 @@ retry:
   ut_a(n_fields > 0 || n_bytes > 0);
 
   page = block->frame;
+  int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
+  int idd = mach_read_from_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+  if ((idd==2 || idd==3) && idd<20 && typee == FIL_PAGE_INDEX){
+    
+    int off = mach_read_from_2(page + PAGE_DATA + 3);
+    int trxs1 = mach_read_from_4(page + PAGE_HEADER + PAGE_MAX_TRX_ID);
+    int trxs2 = mach_read_from_4(page + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
+    uint fl1 = mach_read_from_4(page + 8);
+    uint fl2 = mach_read_from_4(page + 12);
+
+    int slots = mach_read_from_1(page + PAGE_DATA + 5 + off + 19);
+    int slots2 = mach_read_from_1(page + PAGE_DATA + 5 + off + 19 + 1);
+    int slots1 = mach_read_from_1(page + PAGE_DATA + 5 + off);
+    
+    if ((slots == 60) && (slots2 == 120) && (slots1 == 0)) {
+      std::cout<<"hash"<<std::endl;
+      std::cout<<(int *)page[PAGE_DATA + 4 + off +19]<<std::endl;
+      std::cout<<(int *)page[PAGE_DATA + 5 + off + 19]<<std::endl;
+      std::cout<<(int *)page[PAGE_DATA + 6 + off + 19]<<std::endl;
+      std::cout<<(int *)page[PAGE_DATA + 7 + off + 19]<<std::endl;
+      for (int i = 0; i < UNIV_PAGE_SIZE; i ++){
+        std::cout<<(int *)page[i];
+        std::cout<<" ";
+      }
+      std::cout<<""<<std::endl;
+    }
+  }
   n_recs = page_get_n_recs(page);
 
   /* Calculate and cache fold values into an array for fast deletion

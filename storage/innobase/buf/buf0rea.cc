@@ -32,7 +32,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <mysql/service_thd_wait.h>
 #include <stddef.h>
-
+#include <fstream>
+#include <iostream>
 #include "buf0buf.h"
 #include "buf0dblwr.h"
 #include "buf0flu.h"
@@ -118,12 +119,13 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
   *err = fil_io(request, sync, page_id, page_size, 0, page_size.physical(), (void *)dst,
                 bpage);
-  if (bpage->id.space()!=1 && !fsp_is_system_temporary(bpage->id.space())) {
-    fil_space_t * space = get_space(bpage->id.space());
-    char * tablename = space->name;
+  if ((bpage->id.space()==2 && bpage->id.space()==3) && !fsp_is_system_temporary(bpage->id.space())) {
+    //fil_space_t * space = get_space(bpage->id.space());
+    //char * tablename = space->name;
     //std::cout<<((buf_block_t *)bpage)->get_page_type()<<std::endl;
     //std::cout<<"after read"<<std::endl;
-    if (((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
+    if (((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX/* && strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL*/) {
+      //std::cout<<"read"<<std::endl;
       page_t *frame;
       int flag = 0;
       frame = bpage->zip.data;
@@ -133,19 +135,33 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
       }
       int trxs1 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID);
       int trxs2 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
-    
+      uint fl0 = mach_read_from_4(frame + 4);
       uint fl1 = mach_read_from_4(frame + 8);
       uint fl2 = mach_read_from_4(frame + 12);
-      
-      if (trxs1 == 0 && trxs2 == 0 && (fl1 != 4294967295 || fl2 != 4294967295)) {
-        std::cout<<"read"<<std::endl;
-        dict_table_t * table = dict_table_open_on_name(tablename, false, false, DICT_ERR_IGNORE_NONE);
+      int off = mach_read_from_2(frame + PAGE_DATA + 3);
+      int slots = mach_read_from_1(frame + PAGE_DATA + 5 + off + 19);
+      int slots2 = mach_read_from_1(frame + PAGE_DATA + 5 + off + 19 + 1);
+      int slots1 = mach_read_from_1(frame + PAGE_DATA + 5 + off);
+      //std::cout<<(int *)frame[PAGE_DATA + 4 + off]<<std::endl;
+      //std::cout<<(int *)frame[PAGE_DATA + 5 + off]<<std::endl;
+      //std::cout<<(int *)frame[PAGE_DATA + 6 + off]<<std::endl;
+      //std::cout<<(int *)frame[PAGE_DATA + 7 + off]<<std::endl;
+      if (fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 60 && slots2 == 120 && slots1 == 0) {
+         /*std::cout<<"open"<<std::endl;
+         for (int i = 0; i < UNIV_PAGE_SIZE; i++){
+          std::cout<<((int *)(((buf_block_t *)bpage)->frame[i]));
+          std::cout<<" ";
+        }
+        std::cout<<" "<<std::endl;
+        /*dict_table_t * table = dict_table_open_on_name(tablename, false, false, DICT_ERR_IGNORE_NONE);
         std::cout<<"open"<<std::endl;
-        int n_cols = bpage->tableinfo.n_cols;
-        int lens[n_cols];
-        int sum[n_cols];
-        int n = bpage->tableinfo.n;
-        int nulla = bpage->tableinfo.nul;
+        int n_cols = table->n_cols;
+          int lens[n_cols];
+          int sum[n_cols];
+          int n = 0;
+          int nulla = 0;
+          int c = 0;
+
         for (int i = 0; i < n_cols; i++){
           if (table->cols[i].is_nullable()){
             nulla++;
@@ -153,11 +169,33 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           if (table->cols[i].mtype != DATA_SYS){
             n++;
           }
-          lens[i] = table->cols[i].len;
+          if (table->cols[i].mtype == DATA_INT) {
+                lens[i] = table->cols[i].len;
+              }
+              else if (table->cols[i].mtype == DATA_CHAR || table->cols[i].mtype == DATA_MYSQL || table->cols[i].mtype == DATA_VARCHAR) {
+                lens[i] = table->cols[i].len/3;
+                c++;
+              }
           if (i == 0) sum[i] = 0;
           else sum[i] = sum[i-1] + lens[i-1];
         }
-        dict_table_close(table, false, false);
+        dict_table_close(table, false, false);*/
+        int n_cols = 4;
+        int lens[n_cols];
+        int sum[n_cols+1];
+          int n = 0;
+          int nulla = 0;
+          int c = 0;
+          lens[0] = 4;
+          lens[1] = 4;
+          lens[2] = 120;
+          lens[3] = 60;
+          n = 4;
+          c = 2;
+          for (int i = 0; i < n_cols + 1; i++){
+            if (i == 0) sum[i] = 0;
+            else sum[i] = sum[i-1] + lens[i-1];
+          }
         page_t new_frame[UNIV_PAGE_SIZE];
         memcpy(new_frame, frame, UNIV_PAGE_SIZE);
         int rec_n = mach_read_from_2(frame +(PAGE_HEADER+PAGE_N_RECS));
@@ -168,47 +206,52 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
         else {
           t = 4;
         }
-        
-        //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
-        memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
-        for (int i = 0; i < UNIV_PAGE_SIZE; i++){
-          std::cout<<((int *)new_frame[i]);
-          std::cout<<" ";
-        }
-        std::cout<<" "<<std::endl;
+        std::cout<<t<<std::endl;
+        memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
+        //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
         int nul = int(nulla/8);
         if (nulla == 0) {
           nul = 0;
         } else {
           nul = nul + 1;
         }
+        nul = nul+c;
+        
         int head_length = 5+nul+19;
         int rec_length = head_length +sum[n];
         int data_pos[n]; 
         int data_lens[n];
+        int pos = PAGE_DATA + 5 + off;
         data_pos[0] = PAGE_NEW_SUPREMUM_END + rec_n * head_length;
         data_lens[0] = lens[0] * rec_n;
         for (int i = 1; i < n; i ++){
           data_pos[i] = data_pos[i-1] + data_lens[i-1];
           data_lens[i] = lens[i] * rec_n;
         }
-        for (int i = 0; i < rec_n; i++) {
-          memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
-          for (int j = 0; j < n; j++){
-            memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length + head_length + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
-          }
-        }
         
+          
+          for (int i = 0; i < rec_n; i++) {
+            //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
+            memcpy(new_frame + pos - nul - 5, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
+            for (int j = 0; j < n; j++){
+              //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length + head_length + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
+              memcpy(new_frame + pos + 19 + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
+            }
+            off = mach_read_from_2(frame + PAGE_NEW_SUPREMUM_END + i*(head_length) + 5);
+            pos = pos + off;
+            
+          }
+          std::cout<<""<<std::endl;
         //memcpy(frame, new_frame, UNIV_PAGE_SIZE);
         
         memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
-      
-        for (int i = 0; i < UNIV_PAGE_SIZE; i++){
+       /* for (int i = 0; i < UNIV_PAGE_SIZE; i++){
           std::cout<<((int *)(((buf_block_t *)bpage)->frame[i]));
           std::cout<<" ";
         }
-        std::cout<<" "<<std::endl;
+        std::cout<<" "<<std::endl;*/
       }
+      
     }
   }
   if (sync) {
