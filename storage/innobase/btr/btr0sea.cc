@@ -1151,7 +1151,7 @@ retry:
   ut_a(n_fields > 0 || n_bytes > 0);
 
   page = block->frame;
-  int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
+  /*int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
   int idd = mach_read_from_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
   if ((idd==2 || idd==3) && idd<20 && typee == FIL_PAGE_INDEX){
     
@@ -1177,7 +1177,7 @@ retry:
       }
       std::cout<<""<<std::endl;
     }
-  }
+  }*/
   n_recs = page_get_n_recs(page);
 
   /* Calculate and cache fold values into an array for fast deletion

@@ -260,7 +260,7 @@ bool BlockReporter::is_checksum_valid_crc32(ulint checksum_field1,
                                             const srv_checksum_algorithm_t algo,
                                             bool use_legacy_big_endian) const {
   if (checksum_field1 != checksum_field2) {
-    std::cout<<"11"<<std::endl;
+    //std::cout<<"11"<<std::endl;
     return (false);
   }
 
@@ -285,7 +285,7 @@ bool BlockReporter::is_corrupted() const {
           4)) {
     /* Stored log sequence numbers at the start and the end
     of page do not match */
-    std::cout<<"1"<<std::endl;
+    //std::cout<<"1"<<std::endl;
     return (true);
   }
 
@@ -299,7 +299,7 @@ bool BlockReporter::is_corrupted() const {
   }
 
   if (m_page_size.is_compressed()) {
-    std::cout<<"2"<<std::endl;
+    //std::cout<<"2"<<std::endl;
     return (!verify_zip_checksum());
   }
 
@@ -327,7 +327,7 @@ bool BlockReporter::is_corrupted() const {
       if ((i < FIL_PAGE_FILE_FLUSH_LSN ||
            i >= FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID) &&
           m_read_buf[i] != 0) {
-        std::cout<<"3"<<std::endl;
+        //std::cout<<"3"<<std::endl;
         empty = false;
         break;
       }
@@ -400,9 +400,9 @@ bool BlockReporter::is_corrupted() const {
         legacy_big_endian_checksum = true;
         return (false);
       }
-      std::cout<<"4"<<std::endl;
+      //std::cout<<"4"<<std::endl;
       print_crc32_fail();
-      std::cout<<"5"<<std::endl;
+      //std::cout<<"5"<<std::endl;
       return (true);
 
     case SRV_CHECKSUM_ALGORITHM_INNODB:
@@ -438,9 +438,9 @@ bool BlockReporter::is_corrupted() const {
 
         return (false);
       }
-      std::cout<<"7"<<std::endl;
+      //std::cout<<"7"<<std::endl;
       print_innodb_fail();
-      std::cout<<"8"<<std::endl;
+      //std::cout<<"8"<<std::endl;
       return (true);
 
     case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
@@ -468,9 +468,9 @@ bool BlockReporter::is_corrupted() const {
 #endif /* !UNIV_HOTBACKUP */
         return (false);
       }
-      std::cout<<"9"<<std::endl;
+      //std::cout<<"9"<<std::endl;
       print_none_fail();
-      std::cout<<"10"<<std::endl;
+      //std::cout<<"10"<<std::endl;
       return (true);
 
     case SRV_CHECKSUM_ALGORITHM_NONE:

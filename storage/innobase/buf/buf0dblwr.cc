@@ -31,7 +31,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
  *******************************************************/
 
 #include <sys/types.h>
-
+#include <immintrin.h>
+#include <xmmintrin.h>
 #include <sys/time.h>
 #include <cstdlib>  
 #include <cstdio>
@@ -845,12 +846,13 @@ static void buf_dblwr_write_block_to_datafile(
     bool single)               /*!< in: true if sync IO
                              is requested */
 {
+   //std::cout<<"11"<<std::endl;
   ut_a(buf_page_in_file(bpage));
 
   int flagg = 0;
   page_t *frame = ((buf_block_t *)bpage)->frame;
   page_t frame1[UNIV_PAGE_SIZE];
-  if ((bpage->id.space()==2 && bpage->id.space()==3) && bpage->id.space()<20 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space())) {
+  if (bpage->id.space()<1 && bpage->id.space()>100 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space())) {
         //fil_space_t * space = get_space(bpage->id.space());
         //char * tablename = space->name;
         //if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
@@ -865,6 +867,9 @@ static void buf_dblwr_write_block_to_datafile(
 
           int slots = mach_read_from_1(frame2 + PAGE_DATA + 5 + off + 19);
           if (/*trxs1 == 0 && trxs2 == 0 &&*/ fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128) {
+            //struct timespec tn,tn1;
+            //clock_gettime(CLOCK_REALTIME, &tn);
+            //std::cout<<"1"<<std::endl;
             flagg = 1;
             //sync = true;
             memcpy(frame1, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
@@ -902,7 +907,7 @@ static void buf_dblwr_write_block_to_datafile(
             }
 
             dict_table_close(table, false, false);*/
-            int n_cols = 4;
+            int n_cols = 16;
             int lens[n_cols];
             int sum[n_cols+1];
             int n = 0;
@@ -910,11 +915,41 @@ static void buf_dblwr_write_block_to_datafile(
             int c = 0;
             lens[0] = 4;
             lens[1] = 4;
-            lens[2] = 120;
-            lens[3] = 60;
-            n = 4;
-            c = 2;
-            for (int i = 0; i < n_cols + 1; i++){
+            lens[2] = 4;
+            lens[3] = 4;
+            lens[4] = 4;
+            lens[5] = 4;
+            lens[6] = 4;
+            lens[7] = 4;
+            lens[8] = 4;
+            lens[9] = 4;
+            lens[10] = 4;
+            lens[11] = 4;
+            lens[12] = 4;
+            lens[13] = 4;
+            lens[14] = 4;
+            lens[15] = 4;
+            /*lens[16] = 4;
+            lens[17] = 4;
+            lens[18] = 4;
+            lens[19] = 4;
+            lens[20] = 4;
+            lens[21] = 4;
+            lens[22] = 4;
+            lens[23] = 4;
+            lens[24] = 4;
+            lens[25] = 4;
+            lens[26] = 4;
+            lens[27] = 4;
+            lens[28] = 4;
+            lens[29] = 4;
+            lens[30] = 4;
+            lens[31] = 4;
+            lens[8] = 120;
+            lens[9] = 60;*/
+            n = 16;
+            c = 0;
+            for (int i = 0; i < n_cols+1; i++){
               if (i == 0) sum[i] = 0;
               else sum[i] = sum[i-1] + lens[i-1];
             }
@@ -929,8 +964,8 @@ static void buf_dblwr_write_block_to_datafile(
             else {
               t = 4;
             }
-            //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
-            memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
+            memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
+            //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
             int pos = PAGE_DATA + 5 + off;
             int nul = int(nulla/8);
             if (nulla == 0) {
@@ -948,18 +983,49 @@ static void buf_dblwr_write_block_to_datafile(
             for (int i = 1; i < n; i ++){
               data_pos[i] = data_pos[i-1] + data_lens[i-1];
               data_lens[i] = lens[i] * rec_n;
+              //std::cout<<"data "<<data_pos[i]<<" "<<data_lens[i]<<std::endl;
             }
+
+            
+
             for (int i = 0; i < rec_n; i ++) {
+              if (pos>16000 || data_pos[15]>16000){
+                break;
+              }
               memcpy(new_frame + (PAGE_NEW_SUPREMUM_END + i*(head_length)), frame2 + (pos - nul - 5), 5+nul+19);
               for (int j = 0; j < n; j++) {
                 memcpy(new_frame + (data_pos[j]+i*lens[j]), frame2 + (pos + 19 + sum[j]), lens[j]);
               }
               off = mach_read_from_2(frame2 + pos - 2);
               pos = pos + off;
-            }
 
-            memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
-            
+            }
+//std::cout<<"2"<<std::endl;
+            //memcpy(new_frame, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
+            //__m128i mask = _mm_set_epi8(0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15);
+            __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+            int *t1=(int *)(new_frame + data_pos[0]);
+            for (int j = data_pos[0]; j < data_pos[15]+data_lens[15]; j+=16){
+              if (pos>16000 || data_pos[15]>16000){
+                break;
+              }
+              //t1 = (int *)(new_frame + j);
+              for (int i = 0; i < 16; i += 4) {
+                //std::cout<<i<<std::endl;
+                _mm_storeu_si128((__m128i *)&t1[i],
+                _mm_shuffle_epi8(_mm_loadu_si128((__m128i *)&t1[i]), mask));
+                //_mm_shuffle_epi8((__m128i *)&t1[i], mask);
+              }
+              t1 = (int *)(new_frame + j);
+            }
+            //std::cout<<"3"<<std::endl;
+           memcpy(new_frame, frame, UNIV_PAGE_SIZE);
+           //memcpy(new_frame+data_pos[7]+data_lens[7],frame2+data_pos[7]+data_lens[7],UNIV_PAGE_SIZE - data_pos[7] - data_lens[7]);
+            //memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR);
+            //clock_gettime(CLOCK_REALTIME, &tn1);
+            //std::cout<<tn1.tv_nsec-tn.tv_nsec<<"ns"<<std::endl;
+
+            //std::cout<<"4"<<std::endl;
           }
           //fixed ends
         //}
@@ -998,7 +1064,7 @@ static void buf_dblwr_write_block_to_datafile(
       memcpy(frame2,((buf_block_t *)bpage)->frame,UNIV_PAGE_SIZE);
       
       err = fil_io(request, sync, bpage->id, bpage->size, 0,
-                 bpage->size.physical(), frame2, block);
+                 bpage->size.physical(), block->frame, block);
     }
     else{
       err = fil_io(request, sync, bpage->id, bpage->size, 0,
@@ -1007,11 +1073,12 @@ static void buf_dblwr_write_block_to_datafile(
     
     ut_a(err == DB_SUCCESS);
   }
-  
+  //std::cout<<"5"<<std::endl;
   if (flagg) {
-    //os_aio_simulated_wake_handler_threads();
-    memcpy(((buf_block_t *)bpage)->frame, frame1, UNIV_PAGE_SIZE);
+    os_aio_simulated_wake_handler_threads();
+    //memcpy(((buf_block_t *)bpage)->frame, frame1, UNIV_PAGE_SIZE);
   }
+  //std::cout<<"6"<<std::endl;
 }
 
 /** Flushes possible buffered writes from the doublewrite memory buffer to disk,

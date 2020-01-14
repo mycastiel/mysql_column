@@ -32,6 +32,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <mysql/service_thd_wait.h>
 #include <stddef.h>
+#include <immintrin.h>
+#include <xmmintrin.h>
 #include <fstream>
 #include <iostream>
 #include "buf0buf.h"
@@ -119,7 +121,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
   *err = fil_io(request, sync, page_id, page_size, 0, page_size.physical(), (void *)dst,
                 bpage);
-  if ((bpage->id.space()==2 && bpage->id.space()==3) && !fsp_is_system_temporary(bpage->id.space())) {
+  if (bpage->id.space()<1 && bpage->id.space()>100 && !fsp_is_system_temporary(bpage->id.space())) {
     //fil_space_t * space = get_space(bpage->id.space());
     //char * tablename = space->name;
     //std::cout<<((buf_block_t *)bpage)->get_page_type()<<std::endl;
@@ -146,7 +148,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
       //std::cout<<(int *)frame[PAGE_DATA + 5 + off]<<std::endl;
       //std::cout<<(int *)frame[PAGE_DATA + 6 + off]<<std::endl;
       //std::cout<<(int *)frame[PAGE_DATA + 7 + off]<<std::endl;
-      if (fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 60 && slots2 == 120 && slots1 == 0) {
+      if (fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128  /*slots == 60 && slots2 == 120 && slots1 == 0*/) {
          /*std::cout<<"open"<<std::endl;
          for (int i = 0; i < UNIV_PAGE_SIZE; i++){
           std::cout<<((int *)(((buf_block_t *)bpage)->frame[i]));
@@ -180,18 +182,49 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           else sum[i] = sum[i-1] + lens[i-1];
         }
         dict_table_close(table, false, false);*/
-        int n_cols = 4;
-        int lens[n_cols];
-        int sum[n_cols+1];
-          int n = 0;
-          int nulla = 0;
-          int c = 0;
-          lens[0] = 4;
-          lens[1] = 4;
-          lens[2] = 120;
-          lens[3] = 60;
-          n = 4;
-          c = 2;
+        //std::cout<<"open"<<std::endl;
+        int n_cols = 16;
+            int lens[n_cols];
+            int sum[n_cols+1];
+            int n = 0;
+            int nulla = 0;
+            int c = 0;
+            lens[0] = 4;
+            lens[1] = 4;
+            lens[2] = 4;
+            lens[3] = 4;
+            lens[4] = 4;
+            lens[5] = 4;
+            lens[6] = 4;
+            lens[7] = 4;
+            lens[8] = 4;
+            lens[9] = 4;
+            lens[10] = 4;
+            lens[11] = 4;
+            lens[12] = 4;
+            lens[13] = 4;
+            lens[14] = 4;
+            lens[15] = 4;
+            /*lens[16] = 4;
+            lens[17] = 4;
+            lens[18] = 4;
+            lens[19] = 4;
+            lens[20] = 4;
+            lens[21] = 4;
+            lens[22] = 4;
+            lens[23] = 4;
+            lens[24] = 4;
+            lens[25] = 4;
+            lens[26] = 4;
+            lens[27] = 4;
+            lens[28] = 4;
+            lens[29] = 4;
+            lens[30] = 4;
+            lens[31] = 4;
+            lens[8] = 120;
+            lens[9] = 60;*/
+            n = 16;
+            c = 0;
           for (int i = 0; i < n_cols + 1; i++){
             if (i == 0) sum[i] = 0;
             else sum[i] = sum[i-1] + lens[i-1];
@@ -206,7 +239,8 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
         else {
           t = 4;
         }
-        std::cout<<t<<std::endl;
+        //std::cout<<t<<std::endl;
+        
         memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
         //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
         int nul = int(nulla/8);
@@ -216,7 +250,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           nul = nul + 1;
         }
         nul = nul+c;
-        
+         //std::cout<<"1"<<std::endl;
         int head_length = 5+nul+19;
         int rec_length = head_length +sum[n];
         int data_pos[n]; 
@@ -228,9 +262,28 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           data_pos[i] = data_pos[i-1] + data_lens[i-1];
           data_lens[i] = lens[i] * rec_n;
         }
-        
+        //std::cout<<"2"<<std::endl;
+
+        //134 86
+        for (int i = 0; i < rec_n && t<87; i ++) {
+          if (pos>16000 && data_pos[15]>16000){
+                break;
+              }
+              memcpy(new_frame + (PAGE_NEW_SUPREMUM_END + i*(head_length)), frame + (pos - nul - 5), 5+nul+19);
+              for (int j = 0; j < n; j++) {
+                memcpy(new_frame + (data_pos[j]+i*lens[j]), frame + (pos + 19 + sum[j]), lens[j]);
+              }
+              off = mach_read_from_2(frame + pos - 2);
+              pos = pos + off;
+              if (pos>16000){
+                break;
+              }
+            }
+            //std::cout<<"3"<<std::endl;
+            memcpy(new_frame, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
+           // memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);*/
           
-          for (int i = 0; i < rec_n; i++) {
+         /* for (int i = 0; i < rec_n; i++) {
             //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
             memcpy(new_frame + pos - nul - 5, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
             for (int j = 0; j < n; j++){
@@ -240,11 +293,28 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
             off = mach_read_from_2(frame + PAGE_NEW_SUPREMUM_END + i*(head_length) + 5);
             pos = pos + off;
             
-          }
-          std::cout<<""<<std::endl;
+          }*/
         //memcpy(frame, new_frame, UNIV_PAGE_SIZE);
         
-        memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
+        __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+            int *t1=(int *)(new_frame + data_pos[0]);
+            for (int j = data_pos[0]; j < data_pos[15]+data_lens[15] && t<87; j+=16){
+              if (pos>16000 && data_pos[7]>16000){
+                break;
+              }
+              //t1 = (int *)(new_frame + j);
+              for (int i = 0; i < 16; i += 4) {
+                //std::cout<<i<<std::endl;
+                _mm_storeu_si128((__m128i *)&t1[i],
+                _mm_shuffle_epi8(_mm_loadu_si128((__m128i *)&t1[i]), mask));
+                //_mm_shuffle_epi8((__m128i *)&t1[i], mask);
+              }
+              t1 = (int *)(new_frame + j);
+            }
+            
+           //std::cout<<"4"<<std::endl;
+            //memcpy(new_frame+data_pos[7]+data_lens[7],frame+data_pos[7]+data_lens[7],UNIV_PAGE_SIZE - data_pos[7] - data_lens[7]);
+            //memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR);
        /* for (int i = 0; i < UNIV_PAGE_SIZE; i++){
           std::cout<<((int *)(((buf_block_t *)bpage)->frame[i]));
           std::cout<<" ";

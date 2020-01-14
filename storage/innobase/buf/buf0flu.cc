@@ -1195,27 +1195,37 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
           false /* do not skip lsn check */);
     //add
       
-      if ((bpage->id.space()==2 || bpage->id.space()==3) && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space())) {
+      /*if ((bpage->id.space()==2 || bpage->id.space()==3) && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space())) {
         //fil_space_t * space = get_space(bpage->id.space());
         //char * tablename = space->name;
         //std::cout<<tablename<<std::endl;
         //std::cout<<bpage->id.space()<<std::endl;
         //if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
-          //std::cout<<"flu"<<std::endl;  
+          std::cout<<"flu"<<std::endl;  
           page_t *frame2 = ((buf_block_t *)bpage)->frame;
           int off = mach_read_from_2(frame2 + PAGE_DATA + 3);
           int trxs1 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID);
           int trxs2 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
           int slots = mach_read_from_1(frame2 + PAGE_DATA + 5 + off + 19);
+          uint fl0 = mach_read_from_4(frame2 + 4);
+          uint fl1 = mach_read_from_4(frame2 + 8);
+          uint fl2 = mach_read_from_4(frame2 + 12);
+          if (fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128) {
+          for (int i = 0; i < UNIV_PAGE_SIZE; i++){
+          std::cout<<((int *)frame2[i]);
+          std::cout<<" ";
+        }
+        std::cout<<" "<<std::endl;
+      }}
           /*std::cout<<"slots"<<std::endl;
           std::cout<<slots<<std::endl;
 
           std::cout<<"flu"<<std::endl; */
-          uint fl0 = mach_read_from_4(frame2 + 4);
+          /*uint fl0 = mach_read_from_4(frame2 + 4);
           uint fl1 = mach_read_from_4(frame2 + 8);
           uint fl2 = mach_read_from_4(frame2 + 12);
           
-          if (/*trxs1 == 0 && trxs2 == 0 &&*/ fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128) {
+          if (fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128) {
             flaggg = 1;
             //flush_type = BUF_FLUSH_SINGLE_PAGE;
             //sync = true;
@@ -1248,7 +1258,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
             }
             
             dict_table_close(table, false, false);*/
-            int n_cols = 4;
+           /* int n_cols = 4;
           int lens[n_cols];
           int sum[n_cols+1];
           int n = 0;
@@ -1338,7 +1348,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
     ut_a(err == DB_SUCCESS);
 
   } else if (flush_type == BUF_FLUSH_SINGLE_PAGE) {
-    std::cout<<"1.2"<<std::endl;
+    //std::cout<<"1.2"<<std::endl;
     buf_dblwr_write_single_page(bpage, sync);
   } else {
     //std::cout<<"1.3"<<std::endl;
@@ -1350,16 +1360,16 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
   and we flush the changes to disk only for the tablespace we
   are working on. */
   if (sync) {
-    std::cout<<"1"<<std::endl;
+    //std::cout<<"1"<<std::endl;
     ut_ad(flush_type == BUF_FLUSH_SINGLE_PAGE);
     fil_flush(bpage->id.space());
-    std::cout<<"2"<<std::endl;
+    //std::cout<<"2"<<std::endl;
     /* true means we want to evict this page from the
     LRU list as well. */
     buf_page_io_complete(bpage, true);
-    std::cout<<"3"<<std::endl;
+    //std::cout<<"3"<<std::endl;
   }
-  //if (flaggg && !sync) {
+  //if (flaggg) {
       //memcpy(((buf_block_t *)bpage)->frame, frame1, UNIV_PAGE_SIZE); 
   //}
   /* Increment the counter of I/O operations used
