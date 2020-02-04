@@ -1334,6 +1334,9 @@ struct buf_block_t {
                    is of size UNIV_PAGE_SIZE, and
                    aligned to an address divisible by
                    UNIV_PAGE_SIZE */
+  byte *frame1[32][120];
+  //page_id_t id[120];
+  page_t *frame2;
 #ifndef UNIV_HOTBACKUP
   BPageLock lock; /*!< read-write lock of the buffer
                   frame */
@@ -1717,11 +1720,7 @@ directory (buf) to see it. Do not use from outside! */
 struct buf_pool_t {
   /** @name General fields */
   /* @{ */
-  std::map<char *,int> n_cols;
-  std::map<char *,int> n;
-  std::map<char *,int> nul;
-  std::map<char *,int *> lens;
-  std::map<char *,int *> sum;
+  byte *frame1[32][120];
   tableinfo_t *tableinfo;
   tableinfo_t *tableinfohead;
   BufListMutex chunks_mutex;    /*!< protects (de)allocation of chunks:

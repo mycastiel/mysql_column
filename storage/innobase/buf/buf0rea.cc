@@ -121,7 +121,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
   *err = fil_io(request, sync, page_id, page_size, 0, page_size.physical(), (void *)dst,
                 bpage);
-  if (bpage->id.space()<1 && bpage->id.space()>100 && !fsp_is_system_temporary(bpage->id.space())) {
+  if (!bpage->size.is_compressed() && bpage->id.space()>1 && bpage->id.space()<100 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space()) && page_is_leaf(dst) && !fsp_is_undo_tablespace(bpage->id.space())) {
     //fil_space_t * space = get_space(bpage->id.space());
     //char * tablename = space->name;
     //std::cout<<((buf_block_t *)bpage)->get_page_type()<<std::endl;
@@ -129,12 +129,10 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
     if (((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX/* && strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL*/) {
       //std::cout<<"read"<<std::endl;
       page_t *frame;
-      int flag = 0;
-      frame = bpage->zip.data;
-      if (!frame) {
-        flag = 1;
-        frame = ((buf_block_t *)bpage)->frame;
-      }
+      page_t *frame1;
+
+      frame = ((buf_block_t *)bpage)->frame;
+      
       int trxs1 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID);
       int trxs2 = mach_read_from_4(frame + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
       uint fl0 = mach_read_from_4(frame + 4);
@@ -148,7 +146,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
       //std::cout<<(int *)frame[PAGE_DATA + 5 + off]<<std::endl;
       //std::cout<<(int *)frame[PAGE_DATA + 6 + off]<<std::endl;
       //std::cout<<(int *)frame[PAGE_DATA + 7 + off]<<std::endl;
-      if (fl0 != 4294967295 && fl1 != 4294967295 && fl2 != 4294967295 && slots == 128  /*slots == 60 && slots2 == 120 && slots1 == 0*/) {
+      if (fl0 < 3294967295 && fl1 < 3294967295 && fl2 < 3294967295 && slots == 0  /*slots == 60 && slots2 == 120 && slots1 == 0*/) {
          /*std::cout<<"open"<<std::endl;
          for (int i = 0; i < UNIV_PAGE_SIZE; i++){
           std::cout<<((int *)(((buf_block_t *)bpage)->frame[i]));
@@ -182,8 +180,8 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           else sum[i] = sum[i-1] + lens[i-1];
         }
         dict_table_close(table, false, false);*/
-        //std::cout<<"open"<<std::endl;
-        int n_cols = 16;
+        
+        int n_cols = 32;
             int lens[n_cols];
             int sum[n_cols+1];
             int n = 0;
@@ -205,7 +203,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
             lens[13] = 4;
             lens[14] = 4;
             lens[15] = 4;
-            /*lens[16] = 4;
+            lens[16] = 4;
             lens[17] = 4;
             lens[18] = 4;
             lens[19] = 4;
@@ -221,16 +219,16 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
             lens[29] = 4;
             lens[30] = 4;
             lens[31] = 4;
-            lens[8] = 120;
+            /*lens[8] = 120;
             lens[9] = 60;*/
-            n = 16;
+            n = 32;
             c = 0;
           for (int i = 0; i < n_cols + 1; i++){
             if (i == 0) sum[i] = 0;
             else sum[i] = sum[i-1] + lens[i-1];
           }
-        page_t new_frame[UNIV_PAGE_SIZE];
-        memcpy(new_frame, frame, UNIV_PAGE_SIZE);
+        //page_t new_frame[UNIV_PAGE_SIZE];
+        //memcpy(new_frame, frame, PAGE_NEW_SUPREMUM_END);
         int rec_n = mach_read_from_2(frame +(PAGE_HEADER+PAGE_N_RECS));
         int t = 0;
         if (rec_n >= 8) {
@@ -239,9 +237,9 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
         else {
           t = 4;
         }
-        //std::cout<<t<<std::endl;
-        
-        memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
+        //std::cout<<t<<" "<<rec_n<<std::endl;
+        //memcpy(new_frame + UNIV_PAGE_SIZE - t, frame + UNIV_PAGE_SIZE - t, t);
+        //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR - PAGE_NEW_SUPREMUM_END);
         //memset(new_frame + PAGE_NEW_SUPREMUM_END, 0, UNIV_PAGE_SIZE - 500);
         int nul = int(nulla/8);
         if (nulla == 0) {
@@ -262,11 +260,17 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           data_pos[i] = data_pos[i-1] + data_lens[i-1];
           data_lens[i] = lens[i] * rec_n;
         }
+        int data[rec_n];
+            data[0] = PAGE_NEW_SUPREMUM_END + rec_n * head_length;
+            for (int i = 1; i < rec_n; i ++){
+              data[i] = data[i-1] + 4*n;
+            }
+            
         //std::cout<<"2"<<std::endl;
 
-        //134 86
-        for (int i = 0; i < rec_n && t<87; i ++) {
-          if (pos>16000 && data_pos[15]>16000){
+        //134 86 48
+        /*for (int i = 0; i < rec_n && t==48; i ++) {
+          if (pos>16000 && data_pos[31]>16000){
                 break;
               }
               memcpy(new_frame + (PAGE_NEW_SUPREMUM_END + i*(head_length)), frame + (pos - nul - 5), 5+nul+19);
@@ -278,12 +282,22 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
               if (pos>16000){
                 break;
               }
-            }
+            }*/
+            /*for (int i = 0; i < rec_n && t==48; i ++) {
+              if (pos>16000 || data_pos[31]>16000 || t!=48){
+                break;
+              }
+              memcpy(new_frame + (PAGE_NEW_SUPREMUM_END + i*(head_length)), frame + (pos - nul - 5), 5+nul+19);
+              memcpy(new_frame + data[i],frame + pos + 19, 4*n);
+              off = mach_read_from_2(frame + pos - 2);
+              pos = pos + off;
+
+            }*/
             //std::cout<<"3"<<std::endl;
-            memcpy(new_frame, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
-           // memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);*/
+            //memcpy(new_frame, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
+            //memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);*/
           
-         /* for (int i = 0; i < rec_n; i++) {
+          /*for (int i = 0; i < rec_n; i++) {
             //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
             memcpy(new_frame + pos - nul - 5, frame + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
             for (int j = 0; j < n; j++){
@@ -294,12 +308,23 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
             pos = pos + off;
             
           }*/
-        //memcpy(frame, new_frame, UNIV_PAGE_SIZE);
-        
-        __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
-            int *t1=(int *)(new_frame + data_pos[0]);
-            for (int j = data_pos[0]; j < data_pos[15]+data_lens[15] && t<87; j+=16){
-              if (pos>16000 && data_pos[7]>16000){
+          int flagg = 0;
+          for (int i = 0; i < rec_n; i ++) {
+              if (pos > 16000 || data_pos[31]>16000 || t!=48|| rec_n!=99 || off!=152){
+                break;
+              }
+              off = mach_read_from_2(frame + PAGE_NEW_SUPREMUM_END + i*(head_length) + nul + 3);
+              pos = pos + off;
+              if (i == rec_n-1){
+                //std::cout<<"4"<<std::endl;
+                flagg=1;
+                break;
+              }
+          }
+         __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+            int *t1=(int *)(frame + data_pos[0]);
+            for (int j = data_pos[0]; j < data_pos[31]+data_lens[31] && t==48; j+=16){
+              if (!flagg){
                 break;
               }
               //t1 = (int *)(new_frame + j);
@@ -309,20 +334,88 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                 _mm_shuffle_epi8(_mm_loadu_si128((__m128i *)&t1[i]), mask));
                 //_mm_shuffle_epi8((__m128i *)&t1[i], mask);
               }
-              t1 = (int *)(new_frame + j);
+              t1 = (int *)(frame + j);
             }
+            frame1 = (page_t *)malloc(UNIV_PAGE_SIZE * sizeof(page_t));
+            memcpy(frame1, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
+
+          
+          int pos1 = 0;
+          for (int i = 0; i < rec_n && t==48; i ++) {
+              if (!flagg){
+                break;
+              }
+              memcpy(frame + pos - nul - 5, frame1 + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
+              memcpy(frame + pos + 19, frame1 + data[i], 4 * n);
+            off = mach_read_from_2(frame1 + PAGE_NEW_SUPREMUM_END + i*(head_length) + nul + 3);
+            pos = pos + off;
             
+
+          }
+
+        //memcpy(frame, new_frame, UNIV_PAGE_SIZE);
+        
+        
+            if (pos - off> 16000 || data_pos[31]>16000 || t!=48||rec_n!=99){
+
+              }
+              else {
+                //std::cout<<"open"<<std::endl;
+                //memset(new_frame+data_pos[31]+data_lens[31],0,UNIV_PAGE_SIZE - data_pos[31] - data_lens[31] - t);
+
+            
+           /* page_no_t read_page_no;
+    space_id_t read_space_id;
+            read_page_no = mach_read_from_4(frame + FIL_PAGE_OFFSET);
+    read_space_id = mach_read_from_4(frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+    ut_crc32_func_t crc32_func =
+      true ? ut_crc32_legacy_big_endian : ut_crc32;
+  ulint checksum_field1 = mach_read_from_4(frame + FIL_PAGE_SPACE_OR_CHKSUM);
+
+  ulint checksum_field2 = mach_read_from_4(frame + UNIV_PAGE_SIZE -
+                                     FIL_PAGE_END_LSN_OLD_CHKSUM);
+  std::cout<<checksum_field1<<" "<<checksum_field2<<std::endl;
+  const uint32_t c1 = crc32_func(frame + FIL_PAGE_OFFSET,
+                                 FIL_PAGE_FILE_FLUSH_LSN - FIL_PAGE_OFFSET);
+
+  const uint32_t c2 =
+      crc32_func(frame + FIL_PAGE_DATA,
+                 UNIV_PAGE_SIZE - FIL_PAGE_DATA - FIL_PAGE_END_LSN_OLD_CHKSUM);
+    std::cout<<c1<<" "<<c2<<std::endl;
+    //std::cout<<bpage->id.space()<<" "<<bpage->id.page_no()<<" "<<read_page_no<<" "<<read_space_id<<std::endl;
+   /* if ((bpage->id.space() != 0 && bpage->id.space() != read_space_id) || bpage->id.page_no() != read_page_no) {
+      mach_write_to_4(new_frame+4,bpage->id.page_no());
+      mach_write_to_4(new_frame+8,bpage->id.page_no()-1);
+      mach_write_to_4(new_frame+12,bpage->id.page_no()+1);
+      mach_write_to_4(new_frame+FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID,bpage->id.space());
+      //bpage->id.reset(read_space_id,read_page_no);
+    }
+    const uint32_t c3 = crc32_func(new_frame + FIL_PAGE_OFFSET,
+                                 FIL_PAGE_FILE_FLUSH_LSN - FIL_PAGE_OFFSET);
+
+  const uint32_t c4 =
+      crc32_func(new_frame + FIL_PAGE_DATA,
+                 UNIV_PAGE_SIZE - FIL_PAGE_DATA - FIL_PAGE_END_LSN_OLD_CHKSUM);
+    std::cout<<c3<<" "<<c4<<" "<<(c1^c2)<<" "<<(c3^c4)<<std::endl;
+    mach_write_to_4(new_frame+ FIL_PAGE_SPACE_OR_CHKSUM,(c3^c4));
+     mach_write_to_4(new_frame+ UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM,(c3^c4));*/
+//memcpy(new_frame+data_pos[31]+data_lens[31],frame+data_pos[31]+data_lens[31],UNIV_PAGE_SIZE - data_pos[31] - data_lens[31]);
+        //dst = new_frame;
+          //memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
+        
+              }
+              free(frame1);
+
            //std::cout<<"4"<<std::endl;
-            //memcpy(new_frame+data_pos[7]+data_lens[7],frame+data_pos[7]+data_lens[7],UNIV_PAGE_SIZE - data_pos[7] - data_lens[7]);
-            //memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE - t - 1 - PAGE_DIR);
+            
        /* for (int i = 0; i < UNIV_PAGE_SIZE; i++){
           std::cout<<((int *)(((buf_block_t *)bpage)->frame[i]));
           std::cout<<" ";
         }
         std::cout<<" "<<std::endl;*/
       }
-      
-    }
+    } 
+    
   }
   if (sync) {
     thd_wait_end(NULL);

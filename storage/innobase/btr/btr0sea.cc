@@ -40,7 +40,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "btr0sea.h"
 
 #include <sys/types.h>
-
+#include <immintrin.h>
+#include <xmmintrin.h>
 #include "btr0btr.h"
 #include "btr0cur.h"
 #include "btr0pcur.h"
@@ -1071,6 +1072,7 @@ retry:
   /* Do a dirty check on block->index, return if the block is
   not in the adaptive hash index. */
   index = block->index;
+  //std::cout<<"1";
   /* This debug check uses a dirty read that could theoretically cause
   false positives while buf_pool_clear_hash_index() is executing. */
   assert_block_ahi_valid(block);
@@ -1078,7 +1080,7 @@ retry:
   if (index == NULL) {
     return;
   }
-
+  //std::cout<<"1";
   ut_ad(block->page.buf_fix_count == 0 ||
         buf_block_get_state(block) == BUF_BLOCK_REMOVE_HASH ||
         rw_lock_own(&block->lock, RW_LOCK_S) ||
@@ -1087,14 +1089,14 @@ retry:
   /* We must not dereference index here, because it could be freed
   if (index->table->n_ref_count == 0 && !mutex_own(&dict_sys->mutex)).
   Determine the ahi_slot based on the block contents. */
-
+  //std::cout<<"1";
   const space_index_t index_id = btr_page_get_index_id(block->frame);
   const ulint ahi_slot =
       ut_fold_ulint_pair(static_cast<ulint>(index_id),
                          static_cast<ulint>(block->page.id.space())) %
       btr_ahi_parts;
   latch = btr_search_latches[ahi_slot];
-
+  //std::cout<<"1";
   ut_ad(!btr_search_own_any(RW_LOCK_S));
   ut_ad(!btr_search_own_any(RW_LOCK_X));
 
@@ -1103,9 +1105,10 @@ retry:
 
   if (block->index == NULL) {
     rw_lock_s_unlock(latch);
+    //std::cout<<"reture";
     return;
   }
-
+ //std::cout<<"1";
   /* The index associated with a block must remain the
   same, because we are holding block->lock or the block is
   not accessible by other threads (BUF_BLOCK_REMOVE_HASH),
@@ -1115,7 +1118,7 @@ retry:
   ut_a(index == block->index);
   ut_ad(!index->disable_ahi);
   ut_ad(btr_search_enabled);
-
+//std::cout<<"1";
   ut_ad(block->page.id.space() == index->space);
   ut_a(index_id == index->id);
   ut_a(!dict_index_is_ibuf(index));
@@ -1149,55 +1152,63 @@ retry:
   rw_lock_s_unlock(latch);
 
   ut_a(n_fields > 0 || n_bytes > 0);
-
+ //std::cout<<"1"<<std::endl;
   page = block->frame;
-  /*int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
-  int idd = mach_read_from_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-  if ((idd==2 || idd==3) && idd<20 && typee == FIL_PAGE_INDEX){
-    
-    int off = mach_read_from_2(page + PAGE_DATA + 3);
-    int trxs1 = mach_read_from_4(page + PAGE_HEADER + PAGE_MAX_TRX_ID);
-    int trxs2 = mach_read_from_4(page + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
-    uint fl1 = mach_read_from_4(page + 8);
-    uint fl2 = mach_read_from_4(page + 12);
-
-    int slots = mach_read_from_1(page + PAGE_DATA + 5 + off + 19);
-    int slots2 = mach_read_from_1(page + PAGE_DATA + 5 + off + 19 + 1);
-    int slots1 = mach_read_from_1(page + PAGE_DATA + 5 + off);
-    
-    if ((slots == 60) && (slots2 == 120) && (slots1 == 0)) {
-      std::cout<<"hash"<<std::endl;
-      std::cout<<(int *)page[PAGE_DATA + 4 + off +19]<<std::endl;
-      std::cout<<(int *)page[PAGE_DATA + 5 + off + 19]<<std::endl;
-      std::cout<<(int *)page[PAGE_DATA + 6 + off + 19]<<std::endl;
-      std::cout<<(int *)page[PAGE_DATA + 7 + off + 19]<<std::endl;
-      for (int i = 0; i < UNIV_PAGE_SIZE; i ++){
-        std::cout<<(int *)page[i];
-        std::cout<<" ";
-      }
-      std::cout<<""<<std::endl;
+int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
+   page_t * frame2;
+  //page_t *frame2 = ((buf_block_t *)bpage)->frame;
+  int flag = 0;
+  int id;
+  int pn;
+  //std::cout<<block->page.size.is_compressed()<<" "<<block->page.id.space()<<" "<<typee<<" "<<fsp_is_system_temporary(block->page.id.space())<<" "<<fsp_is_undo_tablespace(block->page.id.space())<<std::endl;
+  if (!block->page.size.is_compressed() && block->page.id.space()>1 && block->page.id.space()<100 && typee == FIL_PAGE_INDEX && !fsp_is_system_temporary(block->page.id.space()) && !fsp_is_undo_tablespace(block->page.id.space())) {
+        //fil_space_t * space = get_space(bpage->id.space());
+        //char * tablename = space->name;
+        //if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
+          frame2 = block->frame;
+          int off = mach_read_from_2(frame2 + PAGE_DATA + 3);
+          int trxs1 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID);
+          int trxs2 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
+          uint fl0 = mach_read_from_4(frame2 + 4);
+          uint fl1 = mach_read_from_4(frame2 + 8);
+          uint fl2 = mach_read_from_4(frame2 + 12);
+          pn = fl0;
+          id = block->page.id.space();
+          int slots = mach_read_from_1(frame2 + PAGE_DATA + 5 + off + 19);
+          //std::cout<<fl0<<" "<<fl1<<" "<<fl2<<" "<<slots<<std::endl;
+          if (/*trxs1 == 0 && trxs2 == 0 &&*/ fl1 < 3294967295 && fl2 <3294967295 && slots == 128) {
+            flag = 1;
+            //std::cout<<"btr"<<std::endl;
+          }
+          if (/*trxs1 == 0 && trxs2 == 0 &&*/ fl1 < 3294967295 && fl2 <3294967295 && slots == 0) {
+            /*std::cout<<"btrrr"<<std::endl;
+            for(int i = 0; i < UNIV_PAGE_SIZE;i++){
+              std::cout<<(int *)page[i]<<" ";
+            }
+            std::cout<<""<<std::endl;*/
+          }
     }
-  }*/
+  
   n_recs = page_get_n_recs(page);
-
+  //std::cout<<"2";
   /* Calculate and cache fold values into an array for fast deletion
   from the hash index */
 
   folds = (ulint *)ut_malloc_nokey(n_recs * sizeof(ulint));
 
   n_cached = 0;
-
+  //std::cout<<"3";
   rec = page_get_infimum_rec(page);
   rec = page_rec_get_next_low(rec, page_is_comp(page));
 
   const ulint index_fold =
       btr_search_fold_index_id(block->page.id.space(), index_id);
-
+  //std::cout<<"4";
   prev_fold = 0;
 
   heap = NULL;
   offsets = NULL;
-
+  //std::cout<<"5";
   while (!page_rec_is_supremum(rec)) {
     offsets = rec_get_offsets(
         rec, index, offsets, btr_search_get_n_fields(n_fields, n_bytes), &heap);
@@ -1209,14 +1220,14 @@ retry:
 
     /* Remove all hash nodes pointing to this page from the
     hash chain */
-
+    
     folds[n_cached] = fold;
     n_cached++;
   next_rec:
     rec = page_rec_get_next_low(rec, page_rec_is_comp(rec));
     prev_fold = fold;
   }
-
+  //std::cout<<"6";
   if (UNIV_LIKELY_NULL(heap)) {
     mem_heap_free(heap);
   }
@@ -1236,7 +1247,7 @@ retry:
     page, with different parameters */
 
     rw_lock_x_unlock(latch);
-
+    //std::cout<<"7";
     ut_free(folds);
     goto retry;
   }
@@ -1258,7 +1269,10 @@ retry:
 cleanup:
   assert_block_ahi_valid(block);
   rw_lock_x_unlock(latch);
-
+  if (flag == 1){
+free(block->frame1[id][pn%120]);
+  }
+  
   ut_free(folds);
 }
 
