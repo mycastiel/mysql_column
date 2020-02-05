@@ -310,17 +310,23 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           }*/
           int flagg = 0;
           for (int i = 0; i < rec_n; i ++) {
-              if (pos > 16000 || data_pos[31]>16000 || t!=48|| rec_n!=99 || off!=152){
+              if (pos > 16000 || data_pos[31]>16000 || t!=48|| rec_n!=99){
                 break;
               }
               off = mach_read_from_2(frame + PAGE_NEW_SUPREMUM_END + i*(head_length) + nul + 3);
               pos = pos + off;
+             
               if (i == rec_n-1){
                 //std::cout<<"4"<<std::endl;
                 flagg=1;
                 break;
               }
+               if(off!=152){
+                break;
+              }
           }
+          off = mach_read_from_2(frame + PAGE_DATA + 3);
+          pos = PAGE_DATA + 5 + off;
          __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
             int *t1=(int *)(frame + data_pos[0]);
             for (int j = data_pos[0]; j < data_pos[31]+data_lens[31] && t==48; j+=16){
@@ -356,8 +362,8 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
         //memcpy(frame, new_frame, UNIV_PAGE_SIZE);
         
         
-            if (pos - off> 16000 || data_pos[31]>16000 || t!=48||rec_n!=99){
-
+            if (flagg){
+std::cout<<"open"<<std::endl;
               }
               else {
                 //std::cout<<"open"<<std::endl;

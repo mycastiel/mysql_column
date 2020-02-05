@@ -966,8 +966,8 @@ static void buf_dblwr_write_block_to_datafile(
               else sum[i] = sum[i-1] + lens[i-1];
             }
             //fixed start
-            //page_t *new_frame = frame1;
-            //memcpy(frame3,  frame2, UNIV_PAGE_SIZE);
+            page_t new_frame[UNIV_PAGE_SIZE];
+            memcpy(new_frame,  frame2, UNIV_PAGE_SIZE);
             
             int rec_n = mach_read_from_2(frame2 +(PAGE_HEADER+PAGE_N_RECS));
             int rec_n1 = mach_read_from_2(frame2 +(PAGE_HEADER+PAGE_N_HEAP));
@@ -1023,16 +1023,20 @@ static void buf_dblwr_write_block_to_datafile(
             }*/
             //std::cout<<"3"<<std::endl;
             for (int i = 0; i < rec_n; i ++) {
-              if (pos > 16000 || data_pos[31]>16000 || t!=48|| rec_n!=99 || off!=152){
+              if (pos > 16000 || data_pos[31]>16000 || t!=48|| rec_n!=99 ){
                 break;
               }
               off = mach_read_from_2(frame2 + pos - 2);
               pos = pos + off;
+
               if (i == rec_n-1){
                 //std::cout<<"4"<<std::endl;
                 flagg=1;
                 frame1 = (page_t *)malloc(UNIV_PAGE_SIZE * sizeof(page_t));
                 memcpy(frame1, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
+                break;
+              }
+              if (off != 152){
                 break;
               }
             }
@@ -1077,7 +1081,7 @@ static void buf_dblwr_write_block_to_datafile(
 
                 ((buf_block_t *)bpage)->frame1[id][pn%120] = (page_t *)malloc(UNIV_PAGE_SIZE * sizeof(page_t));
             memcpy(((buf_block_t *)bpage)->frame1[id][pn%120], frame2, UNIV_PAGE_SIZE);
-            
+            memcpy(((buf_block_t *)bpage)->frame, new_frame, UNIV_PAGE_SIZE);
             //memcpy(test , new_frame,sizeof(new_frame));
             //std::cout<<"flu"<<std::endl;
               }
@@ -1145,7 +1149,6 @@ static void buf_dblwr_write_block_to_datafile(
   //std::cout<<"6"<<std::endl;
   if (flagg) {
     //os_aio_simulated_wake_handler_threads();
-    memcpy(((buf_block_t *)bpage)->frame, frame1, UNIV_PAGE_SIZE);
     free(frame1);
   }
   //std::cout<<"7"<<std::endl;

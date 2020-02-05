@@ -1167,6 +1167,8 @@ int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
         //if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
           frame2 = block->frame;
           int off = mach_read_from_2(frame2 + PAGE_DATA + 3);
+           int pos = PAGE_DATA + 5 + off;
+           int rec_n = mach_read_from_2(frame2 +(PAGE_HEADER+PAGE_N_RECS));
           int trxs1 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID);
           int trxs2 = mach_read_from_4(frame2 + PAGE_HEADER + PAGE_MAX_TRX_ID + 4);
           uint fl0 = mach_read_from_4(frame2 + 4);
@@ -1181,8 +1183,32 @@ int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
             //std::cout<<"btr"<<std::endl;
           }
           if (/*trxs1 == 0 && trxs2 == 0 &&*/ fl1 < 3294967295 && fl2 <3294967295 && slots == 0) {
-            /*std::cout<<"btrrr"<<std::endl;
-            for(int i = 0; i < UNIV_PAGE_SIZE;i++){
+            
+            int flagg = 0;
+            int head_length = 5+19;
+          for (int i = 0; i < rec_n; i ++) {
+              if (pos > 16000 || rec_n!=99){
+                break;
+              }
+              off = mach_read_from_2(frame2 + PAGE_NEW_SUPREMUM_END + i*(head_length) + 3);
+              pos = pos + off;
+             
+              if (i == rec_n-1){
+                //std::cout<<"4"<<std::endl;
+                flagg=1;
+                std::cout<<"btrrr"<<std::endl;
+for (int i = 0; i < UNIV_PAGE_SIZE; i++){
+          std::cout<<((int *)page[i]);
+          std::cout<<" ";
+        }
+        std::cout<<" "<<std::endl;
+                break;
+              }
+               if(off!=152){
+                break;
+              }
+          }
+            /*for(int i = 0; i < UNIV_PAGE_SIZE;i++){
               std::cout<<(int *)page[i]<<" ";
             }
             std::cout<<""<<std::endl;*/
@@ -1256,7 +1282,7 @@ int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
     ha_remove_all_nodes_to_page(btr_search_sys->hash_tables[ahi_slot], folds[i],
                                 page);
   }
-
+//std::cout<<"8";
   info = btr_search_get_info(block->index);
   ut_a(info->ref_count > 0);
   info->ref_count--;
@@ -1265,14 +1291,16 @@ int typee = mach_read_from_2(page + FIL_PAGE_TYPE);
 
   MONITOR_INC(MONITOR_ADAPTIVE_HASH_PAGE_REMOVED);
   MONITOR_INC_VALUE(MONITOR_ADAPTIVE_HASH_ROW_REMOVED, n_cached);
-
+//std::cout<<"9";
 cleanup:
+//std::cout<<"10";
   assert_block_ahi_valid(block);
   rw_lock_x_unlock(latch);
+  //std::cout<<"11";
   if (flag == 1){
 free(block->frame1[id][pn%120]);
   }
-  
+  //std::cout<<"12";
   ut_free(folds);
 }
 
