@@ -122,7 +122,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
   *err = fil_io(request, sync, page_id, page_size, 0, page_size.physical(), (void *)dst,
                 bpage);
   //std::cout<<page_id<<" "<<page_size<<" "<<page_size.physical()<<" "<<bpage->id.page_no()<<std::endl;
-  if (!bpage->size.is_compressed() && bpage->id.space()<1 && bpage->id.space()>100 /*&& ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space()) && page_is_leaf(dst) && !fsp_is_undo_tablespace(bpage->id.space())*/) {
+  if (!bpage->size.is_compressed() && bpage->id.space()>1 && bpage->id.space()<10000 /*&& ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space()) && page_is_leaf(dst) && !fsp_is_undo_tablespace(bpage->id.space())*/) {
     //fil_space_t * space = get_space(bpage->id.space());
     //char * tablename = space->name;
     //std::cout<<((buf_block_t *)bpage)->get_page_type()<<std::endl;
@@ -344,7 +344,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
           if (flagg == 1){
               //shuffle
-            __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+            /*__m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
             for (int j = data_pos[0]; j < data_pos[15]+data_lens[15]; j+=16){
                                 _mm_storeu_si128((__m128i *)&frame[j],
                         _mm_shuffle_epi8(_mm_loadu_si128((__m128i *)&frame1[j]), mask));
@@ -389,13 +389,13 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                 break;
               }
               memcpy(frame + pos - nul - 5, frame1 + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
-              //memcpy(frame + pos + 19, frame1 + data[i], 4 * 16);
-              //memcpy(frame + pos + 19 + 4*16,frame1 + data[rec_n-1] + 4*16 + i*63, 63);
+              memcpy(frame + pos + 19, frame1 + data[i], 4 * 16);
+              memcpy(frame + pos + 19 + 4*16,frame1 + data[rec_n-1] + i*63, 63);
 
-              for (int j = 0; j < n; j++){
+              /*for (int j = 0; j < n; j++){
               //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length + head_length + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
                 memcpy(frame + pos + 19 + sum[j], frame1 + (data_pos[j]+i*lens[j]), lens[j]);
-              }
+              }*/
             off = mach_read_from_2(frame1 + PAGE_NEW_SUPREMUM_END + i*(head_length) + nul + 3);
             pos = pos + off;
             

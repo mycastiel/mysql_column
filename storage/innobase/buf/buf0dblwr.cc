@@ -861,7 +861,7 @@ static void buf_dblwr_write_block_to_datafile(
   page_t * frame2;
   //page_t *frame2 = ((buf_block_t *)bpage)->frame;
   //std::cout<<"1"<<std::endl;
-  if (!single&&!bpage->size.is_compressed() && bpage->id.space()<1 && bpage->id.space()>100 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space()) && !fsp_is_undo_tablespace(bpage->id.space())) {
+  if (!single&&!bpage->size.is_compressed() && bpage->id.space()>1 && bpage->id.space()<1000 && ((buf_block_t *)bpage)->get_page_type() == FIL_PAGE_INDEX && !fsp_is_system_temporary(bpage->id.space()) && !fsp_is_undo_tablespace(bpage->id.space())) {
         //fil_space_t * space = get_space(bpage->id.space());
         //char * tablename = space->name;
         //if (strstr(tablename,"mysql")==NULL && strstr(tablename,"innodb")==NULL && strstr(tablename,"sys")==NULL) {
@@ -923,7 +923,7 @@ static void buf_dblwr_write_block_to_datafile(
             int n_cols = 17;
             int lens[n_cols];
             int sum[n_cols+1];
-            int n = 0;
+            int n = 17;
             int nulla = 0;
             int c = 1;
             lens[0] = 4;
@@ -961,12 +961,12 @@ static void buf_dblwr_write_block_to_datafile(
             lens[31] = 4;
             lens[32] = 129;
             /*lens[9] = 60;*/
-            /*n = 17;
+            n = 17;
             c = 1;
             for (int i = 0; i < n_cols+1; i++){
               if (i == 0) sum[i] = 0;
               else sum[i] = sum[i-1] + lens[i-1];
-            }*/
+            }
             //fixed start
             page_t new_frame[UNIV_PAGE_SIZE];
             memcpy(new_frame,  frame2, UNIV_PAGE_SIZE);
@@ -1056,11 +1056,11 @@ static void buf_dblwr_write_block_to_datafile(
                 break;
               }
               memcpy(frame2 + (PAGE_NEW_SUPREMUM_END + i*(head_length)), frame1 + (pos - nul - 5), 5+nul+19);
-              //memcpy(frame2 + data[i],frame1 + pos + 19, 4*16);
-              //memcpy(frame2 + data[rec_n-1] + 4*16 + i*63,frame1 + pos + 19 + 4*16, 63);
-              for (int j = 0; j < n; j++) {
+              memcpy(frame2 + data[i],frame1 + pos + 19, 4*16);
+              memcpy(frame2 + data[rec_n-1] + i*63,frame1 + pos + 19 + 4*16, 63);
+              /*for (int j = 0; j < n; j++) {
                 memcpy(frame2 + (data_pos[j]+i*lens[j]), frame1 + (pos + 19 + sum[j]), lens[j]);
-              }
+              }*/
               off = mach_read_from_2(frame1 + pos - 2);
               pos = pos + off;
             }
@@ -1072,7 +1072,7 @@ static void buf_dblwr_write_block_to_datafile(
             
             if (flagg == 1){
               //shuffle
-            __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
+            /*__m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
             for (int j = data_pos[0]; j < data_pos[15]+data_lens[15]; j+=16){
                                 _mm_storeu_si128((__m128i *)&frame2[j],
                         _mm_shuffle_epi8(_mm_loadu_si128((__m128i *)&frame1[j]), mask));
