@@ -331,7 +331,8 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
               if (i == rec_n-1){
                 //std::cout<<"4"<<std::endl;
                 //std::cout<<rec_length<<std::endl;
-                memcpy(frame1, frame, UNIV_PAGE_SIZE);
+                frame1 = (page_t *)malloc(UNIV_PAGE_SIZE * sizeof(page_t));
+            memcpy(frame1, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
                 flagg=1;
                 break;
               }
@@ -377,10 +378,10 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
                         }
                 }*/
-
-            }
-            frame1 = (page_t *)malloc(UNIV_PAGE_SIZE * sizeof(page_t));
+frame1 = (page_t *)malloc(UNIV_PAGE_SIZE * sizeof(page_t));
             memcpy(frame1, ((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
+            }
+            
 
           
           int pos1 = 0;
@@ -389,13 +390,13 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                 break;
               }
               memcpy(frame + pos - nul - 5, frame1 + PAGE_NEW_SUPREMUM_END + i*(head_length), head_length);
-              memcpy(frame + pos + 19, frame1 + data[i], 4 * 16);
-              memcpy(frame + pos + 19 + 4*16,frame1 + data[rec_n-1] + i*63, 63);
+              //memcpy(frame + pos + 19, frame1 + data[i], 4 * 16);
+              //memcpy(frame + pos + 19 + 4*16,frame1 + data[rec_n-1] + i*63, 63);
 
-              /*for (int j = 0; j < n; j++){
+              for (int j = 0; j < n; j++){
               //memcpy(new_frame + PAGE_NEW_SUPREMUM_END + i*rec_length + head_length + sum[j], frame + (data_pos[j]+i*lens[j]), lens[j]);
                 memcpy(frame + pos + 19 + sum[j], frame1 + (data_pos[j]+i*lens[j]), lens[j]);
-              }*/
+              }
             off = mach_read_from_2(frame1 + PAGE_NEW_SUPREMUM_END + i*(head_length) + nul + 3);
             pos = pos + off;
             

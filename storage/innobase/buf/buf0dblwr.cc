@@ -1056,11 +1056,11 @@ static void buf_dblwr_write_block_to_datafile(
                 break;
               }
               memcpy(frame2 + (PAGE_NEW_SUPREMUM_END + i*(head_length)), frame1 + (pos - nul - 5), 5+nul+19);
-              memcpy(frame2 + data[i],frame1 + pos + 19, 4*16);
-              memcpy(frame2 + data[rec_n-1] + i*63,frame1 + pos + 19 + 4*16, 63);
-              /*for (int j = 0; j < n; j++) {
+              //memcpy(frame2 + data[i],frame1 + pos + 19, 4*16);
+              //memcpy(frame2 + data[rec_n-1] + i*63,frame1 + pos + 19 + 4*16, 63);
+              for (int j = 0; j < n; j++) {
                 memcpy(frame2 + (data_pos[j]+i*lens[j]), frame1 + (pos + 19 + sum[j]), lens[j]);
-              }*/
+              }
               off = mach_read_from_2(frame1 + pos - 2);
               pos = pos + off;
             }
