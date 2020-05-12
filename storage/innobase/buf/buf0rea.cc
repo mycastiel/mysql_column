@@ -345,7 +345,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
           if (flagg == 1){
               //shuffle
             __m128i mask = _mm_set_epi8(15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0);
-            for (int j = data_pos[0]; j < data_pos[15]]+data_lens[15]; j+=16){
+            for (int j = data_pos[0]; j < data_pos[15]+data_lens[15]; j+=16){
                                 _mm_storeu_si128((__m128i *)&frame[j],
                         _mm_shuffle_epi8(_mm_loadu_si128((__m128i *)&frame1[j]), mask));
             }
